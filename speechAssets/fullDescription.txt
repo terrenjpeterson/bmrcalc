@@ -1,0 +1,9 @@
+Calories in versus Calories out.  Our metabolism controls how many calories we burn each day. Do you know how many calories you normally burn? It varies by your current measurements, gender, and your age.
+
+For example, a 35 year old male that weighs 200 pounds and is 5'10" has a BMR of 1958. Adjust for how active, including exercise, and that individual will know how many calories they burn each day, and is the threshold by which they will lose or gain weight.
+
+There are different scientific studies that have determined how many calories our bodies use, and it's based on current height, weight, age, gender, and activity level. The scientific term for this key measure is Basal Metabolic Rate (BMR) and it's just as critical to understand as how many calories you eat each day.
+
+This skill uses the Harris–Benedict equation to calculate your BMR.
+
+Please note: we do not ask for any registration, or any personal identification.
