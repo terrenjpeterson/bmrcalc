@@ -1,0 +1,157 @@
+{
+  "intents": [
+    {
+      "name": "activityLevel",
+      "samples": [
+        "i exercise {exerciseFrequency} times a week",
+        "i work out {exerciseFrequency} days a week",
+        "i work out {exerciseFrequency} times a week",
+        "i exercise {exerciseFrequency} days a week"
+      ],
+      "slots": [
+        {
+          "name": "exerciseFrequency",
+          "type": "AMAZON.NUMBER",
+          "samples": []
+        }
+      ]
+    },
+    {
+      "name": "ageEntry",
+      "samples": [
+        "I am {age} old",
+        "I am {age} years old",
+        "{age} years old"
+      ],
+      "slots": [
+        {
+          "name": "age",
+          "type": "AMAZON.NUMBER",
+          "samples": []
+        }
+      ]
+    },
+    {
+      "name": "AMAZON.CancelIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.HelpIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.MoreIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.NavigateHomeIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.NavigateSettingsIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.NextIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.PageDownIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.PageUpIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.PreviousIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.ScrollDownIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.ScrollLeftIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.ScrollRightIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.ScrollUpIntent",
+      "samples": []
+    },
+    {
+      "name": "AMAZON.StopIntent",
+      "samples": []
+    },
+    {
+      "name": "genderFemale",
+      "samples": [
+        "i am a female",
+        "i am female",
+        "i am a woman",
+        "female"
+      ],
+      "slots": []
+    },
+    {
+      "name": "genderMale",
+      "samples": [
+        "i am a male",
+        "i am male",
+        "i am a man",
+        "male"
+      ],
+      "slots": []
+    },
+    {
+      "name": "heightEntry",
+      "samples": [
+        "I am {heightFeet} feet and {heightInches} inches tall",
+        "I am {heightFeet} {heightInches} ",
+        "i am {heightFeet} feet {heightInches} inches tall"
+      ],
+      "slots": [
+        {
+          "name": "heightFeet",
+          "type": "AMAZON.NUMBER",
+          "samples": []
+        },
+        {
+          "name": "heightInches",
+          "type": "AMAZON.NUMBER",
+          "samples": []
+        }
+      ]
+    },
+    {
+      "name": "noExercise",
+      "samples": [
+        "i don't exercise",
+        "i don't do any exercise",
+        "no exercise"
+      ],
+      "slots": []
+    },
+    {
+      "name": "weightEntry",
+      "samples": [
+        "I weigh {weight} pounds",
+        "i weigh {weight}",
+        "My weight is {weight}",
+        "My weight is {weight} pounds",
+        "i currently weigh {weight} pounds."
+      ],
+      "slots": [
+        {
+          "name": "weight",
+          "type": "AMAZON.NUMBER",
+          "samples": []
+        }
+      ]
+    }
+  ]
+}
