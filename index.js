@@ -2,11 +2,18 @@
  * This skill acts as a calculator for determining metabolic rate
  */
 
+// this is used for leveraging different components of AWS
 var aws = require('aws-sdk');
 
-// this is used by the VoiceLabs analytics
+// this is unique for the Alexa skill
 var APP_ID = 'amzn1.ask.skill.6558c8a3-bbf2-4fd3-a335-21ace2be3d42';
 
+// this is used by the VoiceLabs analytics
+const VLKey = '9e510250-90bc-11a7-0c61-0eb19d13e26e';
+var VoiceLabs = require("voicelabs")(VLKey);
+
+// this is where the images used in the visual portion of the skill
+const bucketLoc = "https://s3.amazonaws.com/metablogiccalculator/"; 
 
 // Route the incoming request based on type (LaunchRequest, IntentRequest,
 // etc.) The JSON body of the request is provided in the event parameter.
@@ -135,7 +142,7 @@ function onIntent(intentRequest, session, context, callback) {
     } else if ("AMAZON.RepeatIntent" === intentName || "AMAZON.NextIntent" === intentName) {
         getWelcomeResponse(session, device, callback);
     } else if ("AMAZON.StopIntent" === intentName || "AMAZON.CancelIntent" === intentName || "AMAZON.NoIntent" === intentName) {
-        handleSessionEndRequest(device, callback);
+        handleSessionEndRequest(device, session, callback);
     } else {
         throw "Invalid intent";
     }
@@ -158,19 +165,21 @@ function getWelcomeResponse(session, device, callback) {
     var shouldEndSession = false;
     var cardTitle = "Welcome to the metabolic calculator";
 
-    var cardOutput = "Metabolic Calculator";
-    var speechOutput = "Welcome to the metabolic calculator. By answering a few questions, " +
-        "this skill can determine your Basal metabolic rate, as well as your recommended " +
-        "daily intake of calories for you to maintain your current weight. " +
-        "If you're ready to get started, please let us know what your current weight is by " +
-        "saying something like I currently weigh 180 pounds.";
+    var cardOutput = "Getting Started";
+    var speechOutput = "Welcome! Please answer a few questions, " +
+        "to calculate your specific Basal metabolic rate, as well as your recommended " +
+        "daily intake of calories to maintain your current weight. " +
+        "If you're ready to get started, please let us know your personal measurements by " +
+        "saying something like, I currently weigh 180 pounds.";
     var repromptText = "If you're ready to get started, please begin by providing your weight. ";
     var activeStorms = false;
 
     console.log("Get Welcome Message - Device Type: " + JSON.stringify(device.type));
-    
-    callback(sessionAttributes,
-        buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+
+    VoiceLabs.track(session, 'Welcome Message', null, speechOutput, (error, response) => {    
+        callback(sessionAttributes,
+            buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+    });
 }
 
 // this is the function called when a weight is provided 
@@ -193,23 +202,34 @@ function processWeight(intent, session, device, callback) {
         if (intent.slots.weight.value === "?") {
             cardOutput = "No weight provided";
             speechOutput = "Sorry, I didn't follow what weight you provided. Please try again.";
+
+            var repromptText = "Please provide your weight in pounds saying something like, I weight 150 pounds.";
+
+            // process response
+            VoiceLabs.track(session, 'Invalid Weight', null, speechOutput, (error, response) => {
+                callback(sessionAttributes,
+                    buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+            });
+
         } else {
             // in this case, a valid weight has been provided. save to session and prepare response
             sessionAttributes.weight = intent.slots.weight.value;
-            promptRemainingDetail(sessionAttributes, device, callback);
+            promptRemainingDetail(sessionAttributes, session, device, callback);
         }
     } else {
         console.log("No weight provided.");
 
         cardOutput = "No weight provided";
         speechOutput = "Sorry, I didn't hear you provide a weight. Can you please try again.";
-    }
     
-    var repromptText = "Please provide your weight in pounds saying something like, I weight 150 pounds.";
+        var repromptText = "Please provide your weight in pounds saying something like, I weight 150 pounds.";
 
-    // process response
-    callback(sessionAttributes,
-        buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+        // process response
+        VoiceLabs.track(session, 'Invalid Weight', null, speechOutput, (error, response) => {
+            callback(sessionAttributes,
+                buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+        });
+    }
 }
 
 // this is the function called when a weight is provided 
@@ -232,22 +252,32 @@ function processAge(intent, session, device, callback) {
         if (intent.slots.age.value === "?") {
             cardOutput = "No age provided";
             speechOutput = "No age provided";
+
+            // process response
+            VoiceLabs.track(session, 'Invalid Age', null, speechOutput, (error, response) => {
+                callback(sessionAttributes,
+                    buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+            });
         } else {
+	    // valid response - go to common function to process
             sessionAttributes.age = intent.slots.age.value;
-            promptRemainingDetail(sessionAttributes, device, callback);
+            promptRemainingDetail(sessionAttributes, session, device, callback);
         }
     } else {
+	// nothing provided in the slot - process error accordingly
         console.log("No age provided.");
 
         cardOutput = "No age provided";
         speechOutput = "No age provided. Please make sure you include the word years in your response.";
-    }
     
-    var repromptText = "Something must be next.";
+        var repromptText = "I'm sorry, I didn't understand your answer. Please let me know how many years old you are.";
 
-    // process response
-    callback(sessionAttributes,
-        buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+        // process response
+        VoiceLabs.track(session, 'Invalid Age', null, speechOutput, (error, response) => {
+            callback(sessionAttributes,
+                buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+        });
+    }
 }
 
 // this is the function called when a height is provided 
@@ -268,32 +298,47 @@ function processHeight(intent, session, device, callback) {
         console.log("Height provided: " + intent.slots.heightFeet.value);
 
         if (intent.slots.heightFeet.value === "?") {
+	    console.log("Invalid Height Value");
             cardOutput = "No height provided";
             speechOutput = "No height provided";
+
+            var repromptText = "Please provide me your height by saying something like, I am five " +
+                "feet and ten inches tall.";
+
+            // process response
+            VoiceLabs.track(session, 'Invalid Height', null, speechOutput, (error, response) => {
+                callback(sessionAttributes,
+                    buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+            });
         } else {
+	    // valid response - at a minimum height in feet was provided
             sessionAttributes.heightFeet = intent.slots.heightFeet.value;
+
+	    console.log("Valid Heigh Provided - now check if Inches were given");
             
             if (intent.slots.heightInches.value) {
                 if (intent.slots.heightInches.value !== "?") {
                     sessionAttributes.heightInches = intent.slots.heightInches.value;
-                    promptRemainingDetail(sessionAttributes, device, callback);
-                }
-            } else {
-                    promptRemainingDetail(sessionAttributes, device, callback);
-            }
+		}
+            } 
+            promptRemainingDetail(sessionAttributes, session, device, callback);
         }
     } else {
         console.log("No height provided.");
 
-        cardOutput = "No height provided";
-        speechOutput = "No height provided.";
-    }
+        speechOutput = "Sorry, I didn't hear you correctly. Can you please tell me your height by " +
+	    "saying something like, I am five feet and ten inches tall.";
+        cardOutput = "No height provided.";
     
-    var repromptText = "Something must be next.";
+        var repromptText = "Please provide me your height by saying something like, I am five " +
+    	    "feet and ten inches tall.";
 
-    // process response
-    callback(sessionAttributes,
-        buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+        // process response
+        VoiceLabs.track(session, 'Invalid Height', null, speechOutput, (error, response) => {
+            callback(sessionAttributes,
+                buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+        });
+    }
 }
 
 // this is the function called when a gender is provided 
@@ -312,7 +357,7 @@ function processGender(gender, intent, session, device, callback) {
     }
 
     sessionAttributes.gender = gender;
-    promptRemainingDetail(sessionAttributes, device, callback);
+    promptRemainingDetail(sessionAttributes, session, device, callback);
 }
 
 // this is what converts the BMR to a recommended intake based on exercise level
@@ -323,7 +368,8 @@ function processActivity(exercise, intent, session, device, callback) {
     var cardOutput = "Calculator";
     var speechOutput = "";
     var repromptText = "are we there yet?"
-    
+    var dci = 0;    
+
     console.log("Process exercise");
     
     // this is where prior data is stored
@@ -337,33 +383,48 @@ function processActivity(exercise, intent, session, device, callback) {
             console.log("check for frequency" + intent.slots.exerciseFrequency.value);
             if (intent.slots.exerciseFrequency.value) {
                 if (intent.slots.exerciseFrequency.value > 5) {
+		    dci = Math.round(sessionAttributes.bmr * 1.725);
                     speechOutput = "Based on a very heavy exercise rate, the recommended daily calorie intake " +
-                        "for you to maintain your current weight is " + Math.round(sessionAttributes.bmr * 1.725) + " calories. ";
-                    cardOutput = "Breakeven intake: " + Math.round(sessionAttributes.bmr * 1.725) + " calories. ";
+                        "for you to maintain your current weight is " + dci + " calories. " +
+			"If you split this evenly over three meals, it would be " + Math.round(dci/3) + " per meal.";
+                    cardOutput = "Breakeven intake: " + dci + " calories. ";
                 } else if (intent.slots.exerciseFrequency.value > 2) {
+		    dci = Math.round(sessionAttributes.bmr * 1.55);
                     speechOutput = "Based on a moderate exercise rate of " + intent.slots.exerciseFrequency.value + " times per week, " +
-                        "the recommended daily daily calorie intake for you to maintain your current weight is " +
-                        Math.round(sessionAttributes.bmr * 1.55) + " calories. ";
-                    cardOutput = "Breakeven intake: " + Math.round(sessionAttributes.bmr * 1.55) + " calories. ";
+                        "the recommended daily daily calorie intake for you to maintain your current weight is " + dci + " calories. " +
+			"If you split this evenly over three meals, it would be " + Math.round(dci/3) + " per meal.";
+                    cardOutput = "Breakeven intake: " + dci + " calories. ";
                 } else {
+		    dci = Math.round(sessionAttributes.bmr * 1.375);
                     speechOutput = "Based on a light exercise rate, the recommended daily calorie intake " +
-                        "for you to maintain your current weigh is " + Math.round(sessionAttributes.bmr * 1.2) + " calories. ";
-                    cardOutput = "Breakeven intake: " + Math.round(sessionAttributes.bmr * 1.2) + " calories. ";
+                        "for you to maintain your current weigh is " + dci + " calories. " +
+			"If you split this evenly over three meals, it would be " + Math.round(dci/3) + " per meal.";
+                    cardOutput = "Breakeven intake: " + dci + " calories. ";
                 }
             } else {
                 speechOutput = "Sorry, I didn't get that. How often do you exercise?";   
                 shouldEndSession = false;
-            }
-            // process response
-            callback(sessionAttributes,
-                buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+                // process response
+                VoiceLabs.track(session, 'Invalid Exercise Level', null, speechOutput, (error, response) => {
+                    callback(sessionAttributes,
+                        buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+	        });
+	    }
+            VoiceLabs.track(session, 'Calculate Daily Intake', intent.slots.exerciseFrequency.value, speechOutput, (error, response) => {
+                callback(sessionAttributes,
+                    buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+            });
         } else {
+	    dci = Math.round(sessionAttributes.bmr *1.2);
             speechOutput = "Based on having little or no exercise in your routine, the recommended daily calorie intake " +
-                "for you to maintain your current weight is " + Math.round(sessionAttributes.bmr *1.2) + " calories. ";
-            cardOutput = "Breakeven intake: " + Math.round(sessionAttributes.bmr *1.2) + " calories. ";
+                "for you to maintain your current weight is " + dci + " calories. " +
+		"If you split this evenly over three meals, it would be " + Math.round(dci/3) + " per meal.";
+            cardOutput = "Breakeven intake: " + dci + " calories. ";
             // process response
-            callback(sessionAttributes,
-                buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+            VoiceLabs.track(session, 'Calculate Daily Intake', null, speechOutput, (error, response) => {
+                callback(sessionAttributes,
+                    buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+            });
         }
     } else {
         promptRemainingDetail(sessionAttributes, device, callback)
@@ -371,7 +432,7 @@ function processActivity(exercise, intent, session, device, callback) {
 }
 
 // this function prepares the response based on what attributes are still required
-function promptRemainingDetail(sessionAttributes, device, callback) {
+function promptRemainingDetail(sessionAttributes, session, device, callback) {
     var shouldEndSession = false;
     
     var cardTitle = "Metabolic Counter";
@@ -379,40 +440,60 @@ function promptRemainingDetail(sessionAttributes, device, callback) {
     var repromptText = "";
     var cardOutput = "To generate BMR, need to provide gender, height, weight, and age.";
     var bmr = 0;
+
+    console.log("Processing Remaining Detail Checks");
     
     if (sessionAttributes.heightFeet && sessionAttributes.age && sessionAttributes.weight && sessionAttributes.gender) {
+	console.log("Calculating MBR");
         if (sessionAttributes.gender === "Male") {
             // This is the male BMR calculation
             bmr = 66 + ( 6.2 * Number(sessionAttributes.weight)) + ( 12.7 * Number(sessionAttributes.heightFeet) * 12 ) + ( -6.76 * Number(sessionAttributes.age));
             if (sessionAttributes.heightInches) {
-                bmr = bmr + 12.7 * Number(sessionAttributes.heightInches);
+		if (sessionAttributes.heightInches !== "?") {
+                  bmr = bmr + 12.7 * Number(sessionAttributes.heightInches);
+		}
             }
         } else {
             // This is the female BMR calculation
             bmr = 655.1 + (4.35 * Number(sessionAttributes.weight)) + (4.7 * Number(sessionAttributes.heightFeet) * 12 ) + (- 4.7 * Number(sessionAttributes.age));
             if (sessionAttributes.heightInches) {
-                bmr = bmr + 4.7 * Number(sessionAttributes.heightInches);
+                if (sessionAttributes.heightInches !== "?") {
+                    bmr = bmr + 4.7 * Number(sessionAttributes.heightInches);
+		}
             }
         }
 
         bmr = Math.round(bmr);
         sessionAttributes.bmr = bmr;
 
+	// build response based on information in session
         speechOutput = "Thank you for providing all the information I need. " +
             "I have you as a " + sessionAttributes.age + " year old " + sessionAttributes.gender + " . " +
             "You weigh " + sessionAttributes.weight + " pounds, and are " +
             sessionAttributes.heightFeet + " feet ";
         if (sessionAttributes.heightInches) {
-            speechOutput = speechOutput + sessionAttributes.heightInches + " inches ";
+	    if (sessionAttributes.heightInches !== "?") {
+                speechOutput = speechOutput + sessionAttributes.heightInches + " inches ";
+	    }
         }
         speechOutput = speechOutput + " tall. " +
             "Based on the Harris Benedict principle, your BMR is " + bmr + ". " + 
-            "Now let's convert this to your daily recommended caloric intake. " +
+            "If any of these values are incorrect, just reply with the updated information. " +
+            "If it is correct, let's convert this to your daily recommended caloric intake. " +
             "How often do you exercise? Either say I don't exercise, or something like " +
             "I exercise 2 days per week. ";
         cardOutput = "BMR: " + bmr + " calories.";
         repromptText = "Please let me know how often you exercise and I will generate " +
             "your recommended daily caloric intake. ";
+
+	var calcBMR = {};
+	    calcBMR.bmr = bmr;
+
+        // process response
+        VoiceLabs.track(session, 'BMR Calculated', calcBMR, speechOutput, (error, response) => {
+            callback(sessionAttributes,
+                buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+        });
             
     } else if (sessionAttributes.weight) {
         console.log("weight received");
@@ -429,7 +510,7 @@ function promptRemainingDetail(sessionAttributes, device, callback) {
             }
         } else {
             console.log("need to find age");
-            speechOutput = "How old are you?";
+            speechOutput = "How old are you? For example, say I am forty years old.";
             repromptText = "Please provide your age in years to calculate your BMR. ";
         }
     } else {
@@ -439,8 +520,11 @@ function promptRemainingDetail(sessionAttributes, device, callback) {
     }
     
     // process response
-    callback(sessionAttributes,
-        buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+    console.log("Process response after validating entries" + speechOutput);
+    VoiceLabs.track(session, 'Validate Entries', null, speechOutput, (error, response) => {
+        callback(sessionAttributes,
+            buildSpeechletResponse(cardTitle, speechOutput, cardOutput, repromptText, device, shouldEndSession));
+    });
     
 }
 
@@ -469,18 +553,22 @@ function getHelpResponse(device, session, callback) {
     var repromptText = "Please tell me how much you weigh, and the skill will walk through the " +
         "other necessary data points for calculating your BMR.";
 
-    callback(sessionAttributes,
+    VoiceLabs.track(session, 'Help', null, speechOutput, (error, response) => {
+        callback(sessionAttributes,
             buildSpeechletResponse(cardTitle, speechOutput, speechOutput, repromptText, device, shouldEndSession));
+    });
 }
 
 // this is the function that gets called to format the response when the user is done
-function handleSessionEndRequest(device, callback) {
-    var cardTitle = "Thanks for using Hurricane Center";
-    var speechOutput = "Thank you for checking in with the Hurricane Center. Have a nice day!";
+function handleSessionEndRequest(device, session, callback) {
+    var cardTitle = "Thanks for using the BMR Calculator";
+    var speechOutput = "Thank you for using the BMR Calculator. Have a nice day!";
     // Setting this to true ends the session and exits the skill.
     var shouldEndSession = true;
 
-    callback({}, buildSpeechletResponse(cardTitle, speechOutput, speechOutput, null, device, shouldEndSession));
+    VoiceLabs.track(session, 'End Session', null, speechOutput, (error, response) => {
+        callback({}, buildSpeechletResponse(cardTitle, speechOutput, speechOutput, null, device, shouldEndSession));
+    });
 }
 
 // --------------- Helpers that build all of the responses -----------------------
@@ -534,7 +622,7 @@ function buildSpeechletResponse(title, output, cardInfo, repromptText, device, s
                         contentDescription: "image title",
                         sources: [
                             {
-                                url: "https://s3.amazonaws.com/metablogiccalculator/logos/scale-340x340.png"
+                                url: bucketLoc + "logos/scale-340x340.png"
                             }
                         ]
                         
@@ -543,7 +631,7 @@ function buildSpeechletResponse(title, output, cardInfo, repromptText, device, s
                         contentDescription: "StormPhoto",
                         sources: [
                             {
-                                url: "https://s3.amazonaws.com/metablogiccalculator/metabolicBackground.png"
+                                url: bucketLoc + "metabolicBackground.png"
                             }
                         ]
                     },
@@ -559,111 +647,6 @@ function buildSpeechletResponse(title, output, cardInfo, repromptText, device, s
             shouldEndSession: shouldEndSession
         };        
     }
-}
-
-function buildVisualListResponse(title, output, cardInfo, repromptText, activeStorms, shouldEndSession) {
-    var stormList = [];
-
-    // first build the list array based on the active storms
-    for (i = 0; i < activeStorms.length; i++) {
-        var stormDetail = {};
-            stormDetail.token = "item_" + i;
-
-        var stormImageLocation = {};
-        
-        // set image based on storm type
-        if (activeStorms[i].stormType === "Tropical Storm") {
-            stormImageLocation.url = "https://s3.amazonaws.com/hurricane-data/images/tropicalStorm.png";
-        } else if (activeStorms[i].stormType === "Hurricane") {
-            stormImageLocation.url = "https://s3.amazonaws.com/hurricane-data/images/hurricane.png";
-        } else {
-            stormImageLocation.url = "https://s3.amazonaws.com/hurricane-data/images/tropicalDepression.png";
-        }
-        var stormImage = [];
-            stormImage.push(stormImageLocation);    
-        var stormImageSources = {};
-            stormImageSources.sources = stormImage;
-            stormImageSources.contentDescription = "Storm Description";
-
-            stormDetail.image = stormImageSources;
-
-        var stormTextContent = {};
-            stormPrimaryText = {};
-            stormPrimaryText.type = "RichText";
-            stormPrimaryText.text = "<font size='3'>" + activeStorms[i].stormType + "<br/>" +
-                activeStorms[i].stormName + "</font>";
-            stormSecondaryText = {};
-            stormSecondaryText.type = "RichText";
-            stormSecondaryText.text = "Peak Winds - " + activeStorms[i].peakWinds + " mph";
-
-            stormTextContent.primaryText   = stormPrimaryText;
-            stormTextContent.secondaryText = stormSecondaryText;
-
-            stormDetail.textContent = stormTextContent;
-        
-            stormList.push(stormDetail);
-    }
-
-    // now return the object formated in the proper way and include the storm list
-    return {
-        outputSpeech: {
-            type: "PlainText",
-            text: output
-        },
-        card: {
-            type: "Simple",
-            title: title,
-            content: cardInfo
-        },
-        reprompt: {
-            outputSpeech: {
-                type: "PlainText",
-                text: repromptText
-            }
-        },
-        directives: [
-            {
-            type: "Display.RenderTemplate",
-            template: {
-                type: "ListTemplate2",
-                token: "T123",
-                backButton: "HIDDEN",
-                backgroundImage: {
-                    contentDescription: "StormPhoto",
-                    sources: [
-                        {
-                            url: "https://s3.amazonaws.com/hurricane-data/hurricaneBackground.png"
-                        }
-                    ]
-                },
-                title: "Hurricane Center",
-                listItems : stormList
-            }
-        }],
-        shouldEndSession: shouldEndSession
-    };        
-}
-
-function buildAudioResponse(title, output, cardInfo, repromptText, shouldEndSession) {
-    console.log("build audio response");
-    return {
-        outputSpeech: {
-            type: "SSML",
-            ssml: output
-        },
-        card: {
-            type: "Simple",
-            title: title,
-            content: cardInfo
-        },
-        reprompt: {
-            outputSpeech: {
-                type: "PlainText",
-                text: repromptText
-            }
-        },
-        shouldEndSession: shouldEndSession
-    };
 }
 
 function buildResponse(sessionAttributes, speechletResponse) {
